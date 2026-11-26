@@ -71,6 +71,7 @@ footer{text-align:center;color:var(--muted);padding:25px;font-size:12px}
  <button class="active" data-tab="dashboard">Pregled</button>
  <button data-tab="customers">Stranke</button>
  <button data-tab="new">Novo kubiranje</button>
+ <button data-tab="boards">Kubiranje desk</button>
  <button data-tab="history">Zgodovina</button>
 </nav>
 <main>
@@ -152,6 +153,95 @@ footer{text-align:center;color:var(--muted);padding:25px;font-size:12px}
  </div>
 </section>
 
+  
+<section id="boards" class="hidden">
+ <h2>Kubiranje desk</h2>
+
+ <div class="panel">
+  <h3>Podatki naročila</h3>
+  <label>Stranka</label>
+  <select id="boardCustomer">
+   <option value="">Izberi stranko</option>
+  </select>
+  <label>Datum</label>
+  <input type="date" id="boardDate">
+ </div>
+
+ <div class="panel">
+  <h3>Nova skupina desk</h3>
+
+  <div class="grid">
+   <div>
+    <label>Debelina desk (mm)</label>
+    <select id="boardThickness">
+     <option value="20">20 mm</option>
+     <option value="25">25 mm</option>
+     <option value="30">30 mm</option>
+     <option value="40">40 mm</option>
+     <option value="50">50 mm</option>
+     <option value="custom">Druga debelina</option>
+    </select>
+   </div>
+   <div id="boardCustomThicknessWrap" class="hidden">
+    <label>Ročna debelina (mm)</label>
+    <input id="boardCustomThickness" type="number" min="1" step="0.1">
+   </div>
+   <div>
+    <label>Dolžina desk (m)</label>
+    <select id="boardLength">
+     <option value="2">2 m</option>
+     <option value="2.5">2,5 m</option>
+     <option value="3">3 m</option>
+     <option value="3.5">3,5 m</option>
+     <option value="4" selected>4 m</option>
+     <option value="5">5 m</option>
+     <option value="6">6 m</option>
+     <option value="custom">Ročni vnos</option>
+    </select>
+   </div>
+   <div id="boardCustomLengthWrap" class="hidden">
+    <label>Ročna dolžina (m)</label>
+    <input id="boardCustomLength" type="number" min="0.01" step="0.01">
+   </div>
+  </div>
+
+  <label>Način merjenja</label>
+  <select id="boardMethod">
+   <option value="row">Skupna širina cele vrste</option>
+   <option value="individual">Posamezne deske</option>
+  </select>
+
+  <div id="boardRowInput">
+   <label>Skupna širina vrste (cm)</label>
+   <input id="boardWidth" type="number" min="0.01" step="0.1" placeholder="Npr. 120">
+  </div>
+
+  <div id="boardIndividualInput" class="hidden">
+   <label>Širine posameznih desk (cm)</label>
+   <input id="boardWidths" placeholder="Npr. 20, 15, 25, 30">
+   <p class="muted">Širine loči z vejico. Vsaka širina predstavlja eno desko.</p>
+  </div>
+
+  <label>Prodajna cena na m³ (€)</label>
+  <input id="boardPrice" type="number" min="0" step="0.01" placeholder="Npr. 350">
+
+  <div class="actions">
+   <button class="primary" onclick="addBoardGroup()">+ Dodaj skupino desk</button>
+  </div>
+ </div>
+
+ <div class="panel">
+  <h3>Dodane skupine desk</h3>
+  <div id="boardGroupsList">Še ni dodanih skupin.</div>
+  <hr>
+  <div id="boardSummary"></div>
+  <div class="actions">
+   <button class="primary" onclick="saveBoardJob()">Shrani naročilo</button>
+   <button class="secondary" onclick="clearBoardGroups()">Počisti</button>
+  </div>
+ </div>
+</section>
+
 <section id="history" class="hidden">
  <h2>Zgodovina kubiranj</h2>
  <div class="panel"><div id="historyList">Ni shranjenih kubiranj.</div></div>
@@ -176,6 +266,152 @@ let customers=load("meden_customers");
 let jobs=load("meden_jobs");
 let logs=[];
 
+  
+let boardJobs=load("meden_board_jobs");
+let boardGroups=[];
+
+function boardVolume(g){
+ return (g.totalWidth/100)*g.length*(g.thickness/1000);
+}
+
+function addBoardGroup(){
+ const thicknessSelect=document.getElementById("boardThickness").value;
+ const thickness=thicknessSelect==="custom"
+  ?Number(document.getElementById("boardCustomThickness").value)
+  :Number(thicknessSelect);
+
+ const lengthSelect=document.getElementById("boardLength").value;
+ const length=lengthSelect==="custom"
+  ?Number(document.getElementById("boardCustomLength").value)
+  :Number(lengthSelect);
+
+ const method=document.getElementById("boardMethod").value;
+ let widths=[];
+
+ if(method==="row"){
+  widths=[Number(document.getElementById("boardWidth").value)];
+ }else{
+  widths=document.getElementById("boardWidths").value
+   .split(",").map(x=>Number(x.trim()));
+ }
+
+ if(!(thickness>0&&length>0) ||
+    !widths.length ||
+    widths.some(x=>!Number.isFinite(x)||x<=0)){
+  return alert("Preveri debelino, dolžino in širine desk.");
+ }
+
+ const group={
+  thickness,length,method,
+  widths,
+  totalWidth:widths.reduce((s,x)=>s+x,0),
+  price:Number(document.getElementById("boardPrice").value)||0
+ };
+
+ boardGroups.push(group);
+ renderBoardGroups();
+
+ document.getElementById("boardWidth").value="";
+ document.getElementById("boardWidths").value="";
+}
+
+function renderBoardGroups(){
+ const el=document.getElementById("boardGroupsList");
+
+ if(!boardGroups.length){
+  el.innerHTML="Še ni dodanih skupin.";
+  document.getElementById("boardSummary").innerHTML="";
+  return;
+ }
+
+ el.innerHTML=`<table>
+ <tr><th>Skupina</th><th>Debelina</th><th>Dolžina</th>
+ <th>Širina</th><th>Površina</th><th>Kubatura</th><th></th></tr>
+ ${boardGroups.map((g,i)=>{
+  const area=g.totalWidth/100*g.length;
+  return `<tr>
+   <td>${i+1}</td>
+   <td>${g.thickness} mm</td>
+   <td>${g.length} m</td>
+   <td>${g.totalWidth.toFixed(1)} cm</td>
+   <td>${area.toFixed(3)} m²</td>
+   <td>${boardVolume(g).toFixed(4)} m³</td>
+   <td><button class="danger" onclick="removeBoardGroup(${i})">×</button></td>
+  </tr>`;
+ }).join("")}</table>`;
+
+ const area=boardGroups.reduce((s,g)=>s+g.totalWidth/100*g.length,0);
+ const volume=boardGroups.reduce((s,g)=>s+boardVolume(g),0);
+ const value=boardGroups.reduce((s,g)=>s+boardVolume(g)*g.price,0);
+
+ document.getElementById("boardSummary").innerHTML=`
+ <p>Skupna površina: <b>${area.toFixed(3)} m²</b></p>
+ <p>Skupna kubatura: <b>${volume.toFixed(4)} m³</b></p>
+ <p>Skupna vrednost: <b>${value.toFixed(2)} €</b></p>`;
+}
+
+function removeBoardGroup(i){
+ boardGroups.splice(i,1);
+ renderBoardGroups();
+}
+
+function clearBoardGroups(){
+ boardGroups=[];
+ renderBoardGroups();
+}
+
+function saveBoardJob(){
+ const customer=customers.find(c=>
+  c.id===Number(document.getElementById("boardCustomer").value)
+ );
+
+ if(!customer)return alert("Izberi stranko.");
+ if(!boardGroups.length)return alert("Dodaj vsaj eno skupino desk.");
+
+ boardJobs.unshift({
+  id:Date.now(),
+  customer:{...customer},
+  date:document.getElementById("boardDate").value,
+  groups:boardGroups.map(g=>({...g,widths:[...g.widths]}))
+ });
+
+ localStorage.setItem("meden_board_jobs",JSON.stringify(boardJobs));
+
+ boardGroups=[];
+ renderBoardGroups();
+
+ alert("Kubiranje desk je shranjeno.");
+ showTab("history");
+}
+
+function boardJobVolume(job){
+ return job.groups.reduce((s,g)=>s+boardVolume(g),0);
+}
+
+function renderBoardCustomerSelect(){
+ const s=document.getElementById("boardCustomer");
+ s.innerHTML='<option value="">Izberi stranko</option>'+
+ customers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
+}
+
+document.getElementById("boardThickness").onchange=e=>{
+ document.getElementById("boardCustomThicknessWrap")
+  .classList.toggle("hidden",e.target.value!=="custom");
+};
+
+document.getElementById("boardLength").onchange=e=>{
+ document.getElementById("boardCustomLengthWrap")
+  .classList.toggle("hidden",e.target.value!=="custom");
+};
+
+document.getElementById("boardMethod").onchange=e=>{
+ const individual=e.target.value==="individual";
+ document.getElementById("boardRowInput").classList.toggle("hidden",individual);
+ document.getElementById("boardIndividualInput").classList.toggle("hidden",!individual);
+};
+
+document.getElementById("boardDate").value=new Date().toISOString().slice(0,10);
+
 function persist(){
  localStorage.setItem("meden_customers",JSON.stringify(customers));
  localStorage.setItem("meden_jobs",JSON.stringify(jobs));
@@ -190,6 +426,7 @@ function showTab(id){
  if(id==="customers")renderCustomers();
  if(id==="history")renderHistory();
  if(id==="new")renderCustomerSelect();
+ if(id==="boards")renderBoardCustomerSelect();
 }
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 function addCustomer(){
@@ -205,11 +442,93 @@ function addCustomer(){
  ["cName","cPhone","cAddress","cTax"].forEach(id=>document.getElementById(id).value="");
  renderCustomers();
 }
-function renderCustomers(){
- const el=document.getElementById("customerList");
- if(!customers.length){el.innerHTML="Ni še vnesenih strank.";return;}
- el.innerHTML=`<table><tr><th>Stranka</th><th>Telefon</th><th>Naslov</th><th></th></tr>
- ${customers.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${esc(c.address)}</td><td><button class="danger" onclick="deleteCustomer(${c.id})">Izbriši</button></td></tr>`).join("")}</table>`;
+
+function renderHistory(){
+ const el=document.getElementById("historyList");
+
+ const rows=[
+  ...jobs.map(j=>({
+   id:j.id,type:"Hlodovina",
+   date:j.date,name:j.customer.name,
+   count:j.logs.length,volume:total(j),
+   action:`makeReport(${j.id})`
+  })),
+  ...boardJobs.map(j=>({
+   id:j.id,type:"Deske",
+   date:j.date,name:j.customer.name,
+   count:j.groups.length,volume:boardJobVolume(j),
+   action:`makeBoardReport(${j.id})`
+  }))
+ ].sort((a,b)=>b.id-a.id);
+
+ if(!rows.length){
+  el.textContent="Ni shranjenih kubiranj.";
+  return;
+ }
+
+ el.innerHTML=`<table>
+ <tr><th>Datum</th><th>Vrsta</th><th>Stranka</th>
+ <th>Skupin/hlodov</th><th>Kubatura</th><th></th></tr>
+ ${rows.map(j=>`<tr>
+ <td>${esc(j.date)}</td>
+ <td>${j.type}</td>
+ <td>${esc(j.name)}</td>
+ <td>${j.count}</td>
+ <td>${fmt(j.volume)} m³</td>
+ <td><button class="primary" onclick="${j.action}">Poročilo</button></td>
+ </tr>`).join("")}</table>`;
+}
+
+function makeBoardReport(id){
+ const j=boardJobs.find(x=>x.id===id);
+ if(!j)return;
+
+ const area=j.groups.reduce((s,g)=>s+g.totalWidth/100*g.length,0);
+ const volume=boardJobVolume(j);
+ const value=j.groups.reduce((s,g)=>s+boardVolume(g)*g.price,0);
+
+ document.getElementById("reportContent").innerHTML=`
+ <div style="border-bottom:3px solid #263b30;padding-bottom:15px">
+  <div style="font-size:32px;font-weight:900;color:#263b30">M <span style="font-size:25px">MEDEN</span></div>
+  <div style="font-size:11px;letter-spacing:2px">EVIDENCA KUBIRANJA LESA</div>
+ </div>
+ <h2>POROČILO O KUBIRANJU DESK</h2>
+ <p><b>Stranka:</b> ${esc(j.customer.name)}</p>
+ <p><b>Naslov:</b> ${esc(j.customer.address||"—")}</p>
+ <p><b>Telefon:</b> ${esc(j.customer.phone||"—")}</p>
+ <p><b>Davčna številka:</b> ${esc(j.customer.tax||"—")}</p>
+ <p><b>Datum:</b> ${esc(j.date)}</p>
+
+ <h3>Izmerjene skupine desk</h3>
+ <table>
+ <tr><th>Št.</th><th>Debelina</th><th>Dolžina</th>
+ <th>Skupna širina</th><th>Površina</th><th>Kubatura</th><th>Cena/m³</th><th>Znesek</th></tr>
+ ${j.groups.map((g,i)=>{
+  const a=g.totalWidth/100*g.length;
+  const v=boardVolume(g);
+  return `<tr>
+   <td>${i+1}</td>
+   <td>${g.thickness} mm</td>
+   <td>${g.length} m</td>
+   <td>${g.totalWidth.toFixed(1)} cm</td>
+   <td>${a.toFixed(3)} m²</td>
+   <td>${fmt(v)} m³</td>
+   <td>${g.price.toFixed(2)} €</td>
+   <td>${(v*g.price).toFixed(2)} €</td>
+  </tr>`;
+ }).join("")}
+ </table>
+
+ <h3>Povzetek</h3>
+ <p>Skupna površina: <b>${area.toFixed(3)} m²</b></p>
+ <p>Skupna kubatura: <b>${fmt(volume)} m³</b></p>
+ <h2>SKUPAJ: ${value.toFixed(2)} €</h2>
+ <p style="margin-top:50px">Podpis izvajalca: ____________________</p>
+ <p>Podpis stranke: ____________________</p>
+ `;
+ showTab("report");
+}
+id})">Izbriši</button></td></tr>`).join("")}</table>`;
 }
 function deleteCustomer(id){
  if(!confirm("Izbrišem stranko?"))return;
