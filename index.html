@@ -1,0 +1,315 @@
+
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEDEN | Evidenca kubiranja lesa</title>
+<style>
+:root {
+  --green:#263b30;
+  --green2:#365b46;
+  --bg:#f3f5f2;
+  --white:#fff;
+  --muted:#778078;
+  --border:#e3e8e3;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:Arial,sans-serif;color:#253229}
+header{background:var(--green);color:white;padding:19px 25px;display:flex;align-items:center;gap:14px}
+.logo{font-size:32px;font-weight:900;letter-spacing:1px}
+.logo span{font-size:25px;margin-left:9px}
+header small{display:block;color:#c8d5cb;font-size:11px;letter-spacing:2px;margin-top:3px}
+nav{display:flex;gap:8px;flex-wrap:wrap;padding:15px;background:white;border-bottom:1px solid var(--border)}
+button{cursor:pointer;border:0;border-radius:7px;padding:11px 15px;font-weight:600}
+nav button{background:#f0f3f0;color:var(--green)}
+nav button.active,.primary{background:var(--green);color:white}
+main{max-width:1100px;margin:25px auto;padding:0 16px}
+h2{font-size:23px;margin:0 0 18px}
+h3{font-size:16px;margin:0 0 15px}
+.panel{background:white;border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:18px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-bottom:18px}
+.stat{background:white;border:1px solid var(--border);padding:18px;border-radius:10px}
+.stat strong{font-size:26px;display:block;color:var(--green);margin-top:8px}
+label{display:block;font-size:13px;font-weight:600;margin:12px 0 6px}
+input,select{width:100%;padding:11px;border:1px solid #d8dfd8;border-radius:7px;font-size:15px;background:white}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.secondary{background:#edf1ed;color:var(--green)}
+.danger{background:#faeaea;color:#9a3030}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:11px 8px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-size:12px}
+.total{font-size:25px;color:var(--green);font-weight:800}
+.muted{color:var(--muted);font-size:13px}
+.hidden{display:none!important}
+footer{text-align:center;color:var(--muted);padding:25px;font-size:12px}
+@media(max-width:650px){
+ .stats{grid-template-columns:1fr}
+ .grid{grid-template-columns:1fr}
+ header{padding:16px}
+ .panel{padding:15px}
+ table{font-size:12px}
+ th,td{padding:8px 4px}
+}
+@media print{
+ header,nav,.no-print,footer{display:none!important}
+ body{background:white}
+ main{margin:0;max-width:none;padding:0}
+ .panel{border:0}
+ #report{display:block!important}
+}
+</style>
+</head>
+<body>
+<header>
+ <div class="logo">M <span>MEDEN</span>
+  <small>EVIDENCA KUBIRANJA LESA</small>
+ </div>
+</header>
+<nav class="no-print">
+ <button class="active" data-tab="dashboard">Pregled</button>
+ <button data-tab="customers">Stranke</button>
+ <button data-tab="new">Novo kubiranje</button>
+ <button data-tab="history">Zgodovina</button>
+</nav>
+<main>
+<section id="dashboard">
+ <h2>Pregled poslovanja</h2>
+ <div class="stats">
+  <div class="stat">Število strank<strong id="statCustomers">0</strong></div>
+  <div class="stat">Opravljenih kubiranj<strong id="statJobs">0</strong></div>
+  <div class="stat">Skupna kubatura<strong id="statVolume">0 m³</strong></div>
+ </div>
+ <div class="panel">
+  <h3>Zadnja kubiranja</h3>
+  <div id="recent" class="muted">Zaenkrat še ni kubiranj.</div>
+ </div>
+</section>
+
+<section id="customers" class="hidden">
+ <h2>Stranke</h2>
+ <div class="panel">
+  <h3>Dodaj novo stranko</h3>
+  <div class="grid">
+   <div><label>Ime in priimek / podjetje</label><input id="cName" placeholder="Janez Novak"></div>
+   <div><label>Telefon</label><input id="cPhone" placeholder="041 123 456"></div>
+   <div><label>Naslov</label><input id="cAddress" placeholder="Naslov stranke"></div>
+   <div><label>Davčna številka</label><input id="cTax" placeholder="Po želji"></div>
+  </div>
+  <div class="actions"><button class="primary" onclick="addCustomer()">Shrani stranko</button></div>
+ </div>
+ <div class="panel">
+  <h3>Seznam strank</h3>
+  <div id="customerList"></div>
+ </div>
+</section>
+
+<section id="new" class="hidden">
+ <h2>Novo kubiranje</h2>
+ <div class="panel">
+  <h3>Podatki stranke</h3>
+  <label>Izberi stranko</label>
+  <select id="jobCustomer"><option value="">Izberi stranko</option></select>
+  <label>Datum kubiranja</label>
+  <input type="date" id="jobDate">
+ </div>
+ <div class="panel">
+  <h3>Vnos hloda</h3>
+  <div class="grid">
+   <div><label>Vrsta lesa</label>
+    <select id="wood">
+     <option>Smreka</option><option>Jelka</option><option>Bor</option>
+     <option>Macesen</option><option>Bukev</option><option>Hrast</option>
+     <option>Javor</option><option>Drugo</option>
+    </select>
+   </div>
+   <div><label>Srednji premer (cm)</label><input id="diameter" type="number" min="0" step="0.1" placeholder="35"></div>
+   <div><label>Dolžina hloda (m)</label>
+    <select id="length">
+     <option value="2">2 m</option><option value="3">3 m</option>
+     <option value="4" selected>4 m</option><option value="5">5 m</option>
+     <option value="6">6 m</option><option value="8">8 m</option>
+     <option value="custom">Ročni vnos</option>
+    </select>
+   </div>
+   <div id="customWrap" class="hidden"><label>Ročna dolžina (m)</label><input id="customLength" type="number" min="0" step="0.01"></div>
+  </div>
+  <div class="actions">
+   <button class="primary" onclick="addLog()">+ Dodaj hlod</button>
+  </div>
+ </div>
+ <div class="panel">
+  <h3>Vneseni hlodi</h3>
+  <div id="logList" class="muted">Še ni dodanih hlodov.</div>
+  <hr style="border:0;border-top:1px solid #e3e8e3;margin:18px 0">
+  <div class="muted">Skupna kubatura</div>
+  <div class="total" id="jobTotal">0.0000 m³</div>
+  <div class="actions">
+   <button class="primary" onclick="saveJob()">Shrani kubiranje</button>
+   <button class="secondary" onclick="clearLogs()">Počisti hlode</button>
+  </div>
+ </div>
+</section>
+
+<section id="history" class="hidden">
+ <h2>Zgodovina kubiranj</h2>
+ <div class="panel"><div id="historyList">Ni shranjenih kubiranj.</div></div>
+</section>
+
+<section id="report" class="hidden">
+ <div id="reportContent"></div>
+ <div class="actions no-print">
+  <button class="primary" onclick="window.print()">Natisni / Shrani PDF</button>
+  <button class="secondary" onclick="showTab('history')">Nazaj</button>
+ </div>
+</section>
+</main>
+<footer>MEDEN · Evidenca kubiranja lesa</footer>
+
+<script>
+const load = key => {
+ try { return JSON.parse(localStorage.getItem(key)) || []; }
+ catch { return []; }
+};
+let customers=load("meden_customers");
+let jobs=load("meden_jobs");
+let logs=[];
+
+function persist(){
+ localStorage.setItem("meden_customers",JSON.stringify(customers));
+ localStorage.setItem("meden_jobs",JSON.stringify(jobs));
+}
+function volume(d,l){return Math.PI*Math.pow(d/200,2)*l}
+function fmt(n){return n.toFixed(4)}
+function showTab(id){
+ document.querySelectorAll("main section").forEach(s=>s.classList.add("hidden"));
+ document.getElementById(id).classList.remove("hidden");
+ document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab===id));
+ if(id==="dashboard")renderDashboard();
+ if(id==="customers")renderCustomers();
+ if(id==="history")renderHistory();
+ if(id==="new")renderCustomerSelect();
+}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+function addCustomer(){
+ const name=document.getElementById("cName").value.trim();
+ if(!name)return alert("Vnesi ime stranke.");
+ customers.push({
+  id:Date.now(),name,
+  phone:document.getElementById("cPhone").value,
+  address:document.getElementById("cAddress").value,
+  tax:document.getElementById("cTax").value
+ });
+ persist();
+ ["cName","cPhone","cAddress","cTax"].forEach(id=>document.getElementById(id).value="");
+ renderCustomers();
+}
+function renderCustomers(){
+ const el=document.getElementById("customerList");
+ if(!customers.length){el.innerHTML="Ni še vnesenih strank.";return;}
+ el.innerHTML=`<table><tr><th>Stranka</th><th>Telefon</th><th>Naslov</th><th></th></tr>
+ ${customers.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${esc(c.address)}</td><td><button class="danger" onclick="deleteCustomer(${c.id})">Izbriši</button></td></tr>`).join("")}</table>`;
+}
+function deleteCustomer(id){
+ if(!confirm("Izbrišem stranko?"))return;
+ customers=customers.filter(c=>c.id!==id);persist();renderCustomers();
+}
+function renderCustomerSelect(){
+ const s=document.getElementById("jobCustomer");
+ const old=s.value;
+ s.innerHTML='<option value="">Izberi stranko</option>'+
+ customers.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("");
+ s.value=old;
+}
+document.getElementById("length").onchange=e=>{
+ document.getElementById("customWrap").classList.toggle("hidden",e.target.value!=="custom");
+};
+document.getElementById("jobDate").value=new Date().toISOString().slice(0,10);
+function addLog(){
+ const d=Number(document.getElementById("diameter").value);
+ const selected=document.getElementById("length").value;
+ const l=selected==="custom"?Number(document.getElementById("customLength").value):Number(selected);
+ if(!(d>0&&l>0&&Number.isFinite(d)&&Number.isFinite(l)))
+  return alert("Preveri premer in dolžino hloda.");
+ logs.push({wood:document.getElementById("wood").value,d,l});
+ document.getElementById("diameter").value="";
+ renderLogs();
+}
+function renderLogs(){
+ const el=document.getElementById("logList");
+ if(!logs.length){el.innerHTML="Še ni dodanih hlodov.";document.getElementById("jobTotal").textContent="0.0000 m³";return;}
+ el.innerHTML=`<table><tr><th>#</th><th>Vrsta</th><th>Premer</th><th>Dolžina</th><th>Kubatura</th><th></th></tr>
+ ${logs.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.wood)}</td><td>${x.d} cm</td><td>${x.l} m</td><td>${fmt(volume(x.d,x.l))} m³</td><td><button class="danger" onclick="removeLog(${i})">×</button></td></tr>`).join("")}</table>`;
+ document.getElementById("jobTotal").textContent=fmt(logs.reduce((s,x)=>s+volume(x.d,x.l),0))+" m³";
+}
+function removeLog(i){logs.splice(i,1);renderLogs()}
+function clearLogs(){logs=[];renderLogs()}
+function saveJob(){
+ const customer=customers.find(c=>c.id===Number(document.getElementById("jobCustomer").value));
+ if(!customer)return alert("Izberi stranko.");
+ if(!logs.length)return alert("Dodaj vsaj en hlod.");
+ jobs.unshift({
+  id:Date.now(),customer:{...customer},
+  date:document.getElementById("jobDate").value,
+  logs:logs.map(x=>({...x}))
+ });
+ persist();logs=[];renderLogs();
+ alert("Kubiranje je shranjeno.");
+ showTab("history");
+}
+function total(job){return job.logs.reduce((s,x)=>s+volume(x.d,x.l),0)}
+function renderDashboard(){
+ document.getElementById("statCustomers").textContent=customers.length;
+ document.getElementById("statJobs").textContent=jobs.length;
+ document.getElementById("statVolume").textContent=fmt(jobs.reduce((s,j)=>s+total(j),0))+" m³";
+ document.getElementById("recent").innerHTML=jobs.length?
+ jobs.slice(0,5).map(j=>`<p>${esc(j.customer.name)} · ${j.date} · <b>${fmt(total(j))} m³</b></p>`).join(""):"Zaenkrat še ni kubiranj.";
+}
+function renderHistory(){
+ const el=document.getElementById("historyList");
+ if(!jobs.length){el.textContent="Ni shranjenih kubiranj.";return;}
+ el.innerHTML=`<table><tr><th>Datum</th><th>Stranka</th><th>Hlodov</th><th>Kubatura</th><th></th></tr>
+ ${jobs.map(j=>`<tr><td>${esc(j.date)}</td><td>${esc(j.customer.name)}</td><td>${j.logs.length}</td><td>${fmt(total(j))} m³</td><td><button class="primary" onclick="makeReport(${j.id})">Poročilo</button></td></tr>`).join("")}</table>`;
+}
+function makeReport(id){
+ const j=jobs.find(x=>x.id===id);
+ const groups={};
+ j.logs.forEach(x=>{
+  if(!groups[x.wood])groups[x.wood]={count:0,volume:0};
+  groups[x.wood].count++;
+  groups[x.wood].volume+=volume(x.d,x.l);
+ });
+ const c=j.customer;
+ document.getElementById("reportContent").innerHTML=`
+ <div style="border-bottom:3px solid #263b30;padding-bottom:15px;margin-bottom:22px">
+  <div style="font-size:32px;font-weight:900;color:#263b30">M <span style="font-size:25px">MEDEN</span></div>
+  <div style="font-size:11px;letter-spacing:2px">EVIDENCA KUBIRANJA LESA</div>
+ </div>
+ <h2>POROČILO O IZMERJENI KUBATURI LESA</h2>
+ <p><b>Stranka:</b> ${esc(c.name)}</p>
+ <p><b>Naslov:</b> ${esc(c.address||"—")}</p>
+ <p><b>Telefon:</b> ${esc(c.phone||"—")}</p>
+ <p><b>Davčna številka:</b> ${esc(c.tax||"—")}</p>
+ <p><b>Datum meritve:</b> ${esc(j.date)}</p>
+ <h3 style="margin-top:28px">Posamezni hlodi</h3>
+ <table><tr><th>Št.</th><th>Vrsta lesa</th><th>Premer</th><th>Dolžina</th><th>Kubatura</th></tr>
+ ${j.logs.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.wood)}</td><td>${x.d} cm</td><td>${x.l} m</td><td>${fmt(volume(x.d,x.l))} m³</td></tr>`).join("")}
+ </table>
+ <h3 style="margin-top:28px">Povzetek po vrstah lesa</h3>
+ <table><tr><th>Vrsta lesa</th><th>Število hlodov</th><th>Skupaj</th></tr>
+ ${Object.entries(groups).map(([name,g])=>`<tr><td>${esc(name)}</td><td>${g.count}</td><td>${fmt(g.volume)} m³</td></tr>`).join("")}
+ </table>
+ <h2 style="margin-top:28px">SKUPAJ: ${fmt(total(j))} m³</h2>
+ <p style="margin-top:55px">Podpis izvajalca: ____________________</p>
+ <p>Podpis stranke: ____________________</p>
+ `;
+ showTab("report");
+}
+function esc(s){
+ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+renderDashboard();
+</script>
+</body>
+</html>
