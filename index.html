@@ -528,8 +528,42 @@ function makeBoardReport(id){
  `;
  showTab("report");
 }
-id})">Izbriši</button></td></tr>`).join("")}</table>`;
+
+  
+function renderCustomers(){
+ const el=document.getElementById("customerList");
+
+ if(!customers.length){
+  el.innerHTML='<p class="muted">Zaenkrat še ni dodanih strank.</p>';
+  return;
+ }
+
+ el.innerHTML=`
+ <table>
+  <tr>
+   <th>Stranka</th>
+   <th>Telefon</th>
+   <th>Naslov</th>
+   <th></th>
+  </tr>
+
+  ${customers.map(c=>`
+   <tr>
+    <td>${esc(c.name)}</td>
+    <td>${esc(c.phone)}</td>
+    <td>${esc(c.address)}</td>
+    <td>
+     <button class="danger"
+     onclick="deleteCustomer(${c.id})">
+      Izbriši
+     </button>
+    </td>
+   </tr>
+  `).join("")}
+
+ </table>`;
 }
+
 function deleteCustomer(id){
  if(!confirm("Izbrišem stranko?"))return;
  customers=customers.filter(c=>c.id!==id);persist();renderCustomers();
@@ -585,12 +619,67 @@ function renderDashboard(){
  document.getElementById("recent").innerHTML=jobs.length?
  jobs.slice(0,5).map(j=>`<p>${esc(j.customer.name)} · ${j.date} · <b>${fmt(total(j))} m³</b></p>`).join(""):"Zaenkrat še ni kubiranj.";
 }
+
 function renderHistory(){
  const el=document.getElementById("historyList");
- if(!jobs.length){el.textContent="Ni shranjenih kubiranj.";return;}
- el.innerHTML=`<table><tr><th>Datum</th><th>Stranka</th><th>Hlodov</th><th>Kubatura</th><th></th></tr>
- ${jobs.map(j=>`<tr><td>${esc(j.date)}</td><td>${esc(j.customer.name)}</td><td>${j.logs.length}</td><td>${fmt(total(j))} m³</td><td><button class="primary" onclick="makeReport(${j.id})">Poročilo</button></td></tr>`).join("")}</table>`;
+
+ const rows=[
+  ...jobs.map(j=>({
+   id:j.id,
+   type:"Hlodovina",
+   date:j.date,
+   name:j.customer.name,
+   count:j.logs.length,
+   volume:total(j),
+   action:`makeReport(${j.id})`
+  })),
+
+  ...boardJobs.map(j=>({
+   id:j.id,
+   type:"Deske",
+   date:j.date,
+   name:j.customer.name,
+   count:j.groups.length,
+   volume:boardJobVolume(j),
+   action:`makeBoardReport(${j.id})`
+  }))
+ ].sort((a,b)=>b.id-a.id);
+
+ if(!rows.length){
+  el.textContent="Ni shranjenih kubiranj.";
+  return;
+ }
+
+ el.innerHTML=`
+ <table>
+  <tr>
+   <th>Datum</th>
+   <th>Vrsta</th>
+   <th>Stranka</th>
+   <th>Št.</th>
+   <th>Kubatura</th>
+   <th></th>
+  </tr>
+
+  ${rows.map(j=>`
+   <tr>
+    <td>${esc(j.date)}</td>
+    <td>${j.type}</td>
+    <td>${esc(j.name)}</td>
+    <td>${j.count}</td>
+    <td>${fmt(j.volume)} m³</td>
+    <td>
+     <button class="primary"
+     onclick="${j.action}">
+      Poročilo
+     </button>
+    </td>
+   </tr>
+  `).join("")}
+
+ </table>`;
 }
+
 function makeReport(id){
  const j=jobs.find(x=>x.id===id);
  const groups={};
